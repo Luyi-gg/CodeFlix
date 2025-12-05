@@ -1,0 +1,133 @@
+<!doctype html> <!-- Declara el tipo de documento HTML -->
+<html lang="es"> <!-- Idioma del documento: español -->
+<head>
+  <meta charset="utf-8" /> <!-- Juego de caracteres UTF-8 -->
+  <title>CodeFlix</title> <!-- Título de la página -->
+  <link rel="icon" type="image/png" href="/images/favicon.png" />
+  <link rel="shortcut icon" type="image/png" href="/images/favicon.png" />
+  <link rel="apple-touch-icon" href="/images/favicon.png" />
+  <link rel="stylesheet" href="styles/style.css" /> <!-- Enlace al CSS principal -->
+</head>
+<body class="home">
+  <header>
+    <h1>CodeFlix</h1>
+    <div class="search-row">
+      <input id="search" placeholder="Buscar por título o descripción..." />
+      <div id="filters-inline"> <!-- Contenedor inline de filtros numéricos -->
+        <label>GORE <select id="filter-gore"><option>0</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select></label> <!-- Select gore -->
+        <label>MIEDO <select id="filter-miedo"><option>0</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select></label> <!-- Select miedo -->
+        <label>JUMPS <select id="filter-jumps"><option>0</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select></label> <!-- Select jumps -->
+        <label>SUSPENSO <select id="filter-suspense"><option>0</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select></label> <!-- Select suspenso -->
+      </div>
+      <div class="tags-inline">
+        <button id="tags-toggle" class="tags-toggle">
+          Seleccionar Por Tags
+        </button>
+        <div id="tags-container" class="tags-container hidden">
+          <div id="tags-list">Cargando tags...</div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <section id="filters-panel" class="filters-panel">
+    <div class="filters-left">
+      <h3>&nbsp;</h3>
+    </div>
+    <div class="filters-right">
+      <div id="results-summary">
+        Se encontraron <span id="results-count">0</span> películas
+        <button id="clear-filters" class="clear-filters">Limpiar filtros</button>
+      </div>
+    </div>
+  </section>
+
+
+  <main>
+    <h2>Películas Recomendadas</h2>
+      <div class="carousel-wrapper">
+        <div class="carousel-container" id="carousel-recommended"></div>
+      </div>
+
+      <h2>Favoritas de Japón</h2>
+      <div class="carousel-wrapper">
+        <div class="carousel-container" id="carousel-favoritesJapan"></div>
+      </div>
+
+      <h2>Terror Coreano</h2>
+      <div class="carousel-wrapper">
+        <div class="carousel-container" id="carousel-koreanHorror"></div>
+      </div>
+
+
+      <!-- Carrusel de España eliminado a petición del usuario -->
+
+      <h2>Favoritas de USA</h2>
+      <div class="carousel-wrapper">
+        <div class="carousel-container" id="carousel-favoritesUSA"></div>
+      </div>
+
+    <!-- Sección con todas las películas paginadas (solo imagen + título) -->
+    <section id="all-movies">
+      <h2>Todas las películas</h2>
+      <div id="movies-grid" class="movies-grid"></div> <!-- Grid donde se mostrarán todas las películas -->
+      <div id="movies-pagination" class="pagination"></div> <!-- Contenedor de paginación -->
+    </section>
+
+    <!-- Sección Quiénes somos / Visión / Contacto -->
+    <section id="about-section" class="about-section">
+      <h2>Sobre Nosotros</h2>
+
+      <div class="about-grid">
+
+        <article class="about-card">
+          <h3>¿Quiénes somos?</h3>
+          <p>
+            Somos un equipo apasionado por el cine de terror. Creamos CodeFlix
+            como un proyecto para explorar, catalogar y compartir lo mejor del horror en todas sus vertientes.
+          </p>
+        </article>
+
+        <article class="about-card">
+          <h3>Nuestra visión</h3>
+          <p>
+            Queremos construir un espacio donde cualquier fan del terror pueda descubrir nuevas películas,
+            conocer clásicos, explorar subgéneros y disfrutar de un catálogo seleccionado cuidadosamente.
+          </p>
+        </article>
+
+        <article class="about-card">
+          <h3>Contáctanos</h3>
+          
+          <form id="contactForm" class="contact-form">
+            <label>
+              Nombre:
+              <input type="text" name="name" required placeholder="Luis Rey">
+            </label>
+            <label>
+              Correo electrónico:
+              <input type="email" name="email" required placeholder="LuisRey@example.com">
+            </label>
+            <label>
+              Mensaje:
+              <textarea name="message" rows="4" required placeholder="Excelente trabajo..."></textarea>
+            </label>
+            
+            <button type="submit">Enviar</button>
+            <p id="contactMessage" class="contact-message"></p>
+          </form>
+
+          <!-- Div para mostrar los datos enviados -->
+          <div id="submittedData" class="submitted-data"></div>
+        </article>
+
+      </div>
+    </section>
+    <footer class="footer">
+      <p>&copy; 2025 CodeFlix. Todos los derechos reservados.</p>
+    </footer>
+  </main>
+
+  <script src="scripts/main.js"></script> <!-- Script principal del frontend -->
+</body>
+</html>

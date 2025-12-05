@@ -1,0 +1,24 @@
+{
+  "name": "la-cripta-del-cine",
+  "version": "1.0.0",
+  "description": "Sitio web temático de películas de terror con catálogo, filtros y valoraciones.",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node test_rating.js",
+    "normalize": "node scripts/normalize_movies.js",
+    "addfields": "node scripts/add_fields.js"
+  },
+  "keywords": [
+    "cine",
+    "terror",
+    "peliculas",
+    "proyecto"
+  ],
+  "author": "Luyi",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.22.1"
+  }
+}
