@@ -283,7 +283,7 @@ async function load(){
     </div>
 
     <div class="player" style="margin-top:30px;text-align:center;">
-      <video id="movie-video" controls width="720" style="border-radius:8px;box-shadow:0 0 15px rgba(138,43,226,0.4);">
+      <video id="movie-video" controls style="width:100%;max-width:720px;height:auto;border-radius:8px;box-shadow:0 0 15px rgba(138,43,226,0.4);">
         <source src="/videos/trailers/codeflix.mp4" type="video/mp4">
         Tu navegador no soporta el elemento video.
       </video>
@@ -330,7 +330,6 @@ async function load(){
       document.body.appendChild(overlay);
 
       const content=document.getElementById('trailer-content');
-      let showRatingOnClose = false;
 
       const keyHandler = (e) => {
         if (e.key === 'Escape') closeModal();
@@ -350,12 +349,6 @@ async function load(){
         }
         delete showTrailerBtn.dataset.clicked;
         document.removeEventListener('keydown', keyHandler);
-
-        // Solo para ciertos casos (YouTube) mostraremos la ventana de calificación
-        if (showRatingOnClose) {
-          showRatingForm(movie);
-          showRatingOnClose = false;
-        }
       }
 
       document
@@ -369,12 +362,10 @@ async function load(){
           const v=document.createElement('video'); v.controls=true; v.width=920;
           const s=document.createElement('source'); s.src=movie.trailer.url; s.type='video/mp4'; v.appendChild(s);
           content.innerHTML=''; content.appendChild(v);
-          v.addEventListener('ended',()=>{ closeModal(); showRatingForm(movie); });
+          v.addEventListener('ended',()=>{ closeModal(); });
         }
         else if(movie.trailer.type==='youtube'){
         //Trailers de YouTube
-        // Activar flag: cuando se cierre este modal (✕ o ESC), mostrar rating
-        showRatingOnClose = true;
         // Añadimos autoplay para permitir reproducción automática
         const autoplayUrl = movie.trailer.url.includes("?")
           ? movie.trailer.url + "&autoplay=1" //Ponerlo asi: "&autoplay=1&mute=1" en caso de que el navegaro bloquee el video
@@ -397,7 +388,7 @@ async function load(){
 } else if(movie.video){
   const v=document.createElement('video'); v.controls=true; v.width=920; v.src=movie.video;
   content.innerHTML=''; content.appendChild(v);
-  v.addEventListener('ended',()=>{ closeModal(); showRatingForm(movie); });
+  v.addEventListener('ended',()=>{ closeModal(); });
 } else { 
   content.innerHTML='<p>Trailer no disponible</p>'; 
 }
@@ -408,16 +399,7 @@ async function load(){
 const vid = document.getElementById('movie-video');
 if (vid) {
   vid.addEventListener('ended', () => {
-
-    const showTrailerBtn = document.getElementById('show-trailer');
-
-    // Si el botón existe, "simular" un click para abrir la ventana emergente
-    if (showTrailerBtn && !showTrailerBtn.dataset.clicked) {
-      showTrailerBtn.click();
-    } else {
-      // Si por alguna razón no se puede abrir el modal, mostramos el form
-      showRatingForm(movie);
-    }
+    showRatingForm(movie);
   });
 }
 

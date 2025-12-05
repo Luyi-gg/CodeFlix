@@ -760,10 +760,16 @@
       "fantasmas",
       "venganza"
     ],
-    "gore": 2,
-    "scares": 4,
+    "gore": 1.5,
+    "scares": 2.5,
     "subgenre": "Sobrenatural",
-    "comments": []
+    "comments": [],
+    "gore_count": 2,
+    "scares_count": 2,
+    "jumpscares": 1,
+    "jumps_count": 1,
+    "suspense": 1,
+    "suspense_count": 1
   },
   {
     "id": 34,
