@@ -1,237 +1,28 @@
-// Función asíncrona que realiza una petición fetch a la URL dada y devuelve el JSON recibido
+/**
+ * movie.js
+ * Script de la página de detalle de película.
+ * Contiene utilidades para fetch, escape, formateo y la lógica para
+ * mostrar el trailer, comentarios y el formulario de rating.
+ */
+
+// ------------------- UTILIDADES -------------------
+
+/**
+ * fetchJSON
+ * @param {string} url
+ * @returns {Promise<any>}
+ */
 async function fetchJSON(url) {
-  // usamos fetch para obtener la respuesta
   const r = await fetch(url);
-  // parseamos la respuesta como JSON y la devolvemos
   return r.json();
 }
 
-// Objeto que representa los parámetros de consulta (?id=...) de la URL
-const params = new URLSearchParams(location.search);
-// Extrae el valor del parámetro "id" (identificador de la película a mostrar)
-const id = params.get("id");
-
-// Función principal que carga los datos de la película y renderiza la página
-async function load() {
-  // Solicita al servidor los datos de la película usando el id obtenido
-  const movie = await fetchJSON(`/api/movies/${id}`);
-  // Si no existe la película, mostramos un mensaje y salimos
-  if (!movie) {
-    document.getElementById("movie-container").innerHTML = "<p>Película no encontrada</p>";
-    return;
-  }
-  // Construye el HTML de detalle de la película (poster, información, video y comentarios)
-  // A continuación mostramos también los niveles de "gore" y "miedo" (scares) si existen
-  // - `movie.gore` representa un nivel de violencia/grado de gore (por ejemplo 0-5)
-  // - `movie.scares` representa el nivel de sustos/miedo (por ejemplo 0-5)
-  // Ambos valores se renderizan dentro del template HTML más abajo.
-  // IMPORTANTE: la plantilla HTML está dentro de un template literal y no se comentan sus líneas internas
-  // calcular terrorímetro antes de renderizar la plantilla
-  const terrorValue = computeTerrorimeter(movie);
-  const terrorPercent = Math.round((terrorValue / 5) * 100);
-
-  document.getElementById("movie-container").innerHTML = `
-    <div class="movie-detail">
-      <a class="back" href="/">← Volver</a>
-      <div class="meta">
-        <img class="poster" src="${movie.poster}" alt="${movie.title}" />
-        <div class="info">
-          <h1>${movie.title} <small>(${movie.year})</small></h1>
-          <!-- Terrorímetro: medidor calculado a partir de gore, miedo, jumpscares y suspenso -->
-          <div class="terrorimeter">
-            <div class="terror-bar"><div class="terror-fill" style="width:${terrorPercent}%;"></div></div>
-            <div class="terror-score">Terrorímetro: ${terrorValue}/5</div>
-          </div>
-          <p class="synopsis">${movie.synopsis}</p>
-          <p class="tags"><strong>Tags:</strong> ${((movie.tags || []).map(t => `<span class="tag">${t}</span>`).join(" "))}</p>
-          <!-- Mostrar niveles: gore y scares (miedo) -->
-          <p class="levels"><strong>Gore:</strong> ${movie.gore ?? 'N/A'} / 5 &nbsp; <strong>Miedo:</strong> ${movie.scares ?? 'N/A'} / 5</p>
-          <!-- Mostrar nuevos campos: jumpscares y suspense -->
-          <!-- movie.jumpscares: número aproximado de sobresaltos tipo "jump" en la película (0-5) -->
-          <!-- movie.suspensos: nivel de suspenso 1-5; si no está, el servidor puede devolver suspense por defecto -->
-          <p class="levels"><strong>Jumpscares:</strong> ${movie.jumpscares ?? 'N/A'} &nbsp; <strong>Suspenso:</strong> ${movie.suspense ?? 'N/A'} / 5</p>
-        </div>
-      </div>
-
-            <div class="player">
-        <h3>Trailer</h3>
-            ${movie.trailer && movie.trailer.type === 'youtube'
-      ? `<iframe width="720" height="405" src="${movie.trailer.url}" frameborder="0" allowfullscreen></iframe>`
-      : movie.trailer && movie.trailer.type === 'local'
-        ? `<video id="movie-video" controls width="720"><source src="${movie.trailer.url}" type="video/mp4">Tu navegador no soporta el elemento video.</video>`
-        : `<video id="movie-video" controls width="720" src="${movie.video}"></video>`
-    }
-            <!-- Botón de simulación para reproducir fin en cualquier caso -->
-            <div style="text-align:center;margin-top:8px;"><button id="simulate-end" class="simulate-btn">He terminado de ver</button></div>
-      </div>
-
-      <section class="comments-section">
-        <h3>Comentarios</h3>
-        <div id="comments">
-          ${((movie.comments || []).map(c => `<div class="comment"><b>${escapeHtml(c.user)}</b> <small>${formatDate(c.date)}</small><p>${escapeHtml(c.text)}</p></div>`).join(""))}
-        </div>
-
-        <h4>Añadir comentario</h4>
-        <div class="comment-form">
-          <input id="user" placeholder="Tu nombre" />
-          <textarea id="text" placeholder="Tu comentario"></textarea>
-          <button id="send">Enviar</button>
-        </div>
-      </section>
-    </div>
-  `;
-
-  // Agrega un listener al botón "Enviar" para procesar el nuevo comentario
-  document.getElementById("send").addEventListener("click", addComment);
-
-  // Si existe un elemento video, añadimos evento 'ended' para mostrar el formulario al terminar
-  const vid = document.getElementById('movie-video');
-  if (vid) {
-    vid.addEventListener('ended', () => {
-      showRatingForm(movie);
-    });
-  }
-
-  // Botón para simular el fin de la película/trailer (útil para iframes o pruebas)
-  const sim = document.getElementById('simulate-end');
-  if (sim) sim.addEventListener('click', () => showRatingForm(movie));
-}
-
-// Mostrar modal con formulario para puntuar las 4 métricas usando un selector tipo "estrellas"
-function showRatingForm(movie) {
-  // evitar múltiples modales
-  if (document.getElementById('rating-modal')) return;
-
-  const modal = document.createElement('div');
-  modal.id = 'rating-modal';
-  modal.className = 'rating-overlay';
-  modal.innerHTML = `
-      <div class="rating-box">
-        <h3>Valora la película</h3>
-        <p>Selecciona de 1 a 5 estrellas para cada elemento:</p>
-        <div class="rating-field"><div class="rating-label">Gore</div><div id="r-gore" class="star-rating"></div></div>
-        <div class="rating-field"><div class="rating-label">Miedo (scares)</div><div id="r-scares" class="star-rating"></div></div>
-        <div class="rating-field"><div class="rating-label">Jumpscares</div><div id="r-jumps" class="star-rating"></div></div>
-        <div class="rating-field"><div class="rating-label">Suspenso</div><div id="r-susp" class="star-rating"></div></div>
-        <div class="rating-actions">
-          <button id="rating-send">Enviar valoración</button>
-          <button id="rating-cancel">Cancelar</button>
-        </div>
-      </div>
-    `;
-  document.body.appendChild(modal);
-
-  // Inicializar cada control de estrellas
-  function buildStars(containerId, currentValue) {
-    const cont = document.getElementById(containerId);
-    cont.innerHTML = '';
-    for (let i = 1; i <= 5; i++) {
-      const s = document.createElement('span');
-      s.className = 'star';
-      s.dataset.value = String(i);
-      s.tabIndex = 0;
-      s.innerText = '★';
-      if (i <= Math.round(currentValue || 0)) s.classList.add('selected');
-      // click
-      s.addEventListener('click', () => setStars(cont, i));
-      s.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setStars(cont, i); } });
-      cont.appendChild(s);
-    }
-  }
-
-  function setStars(container, value) {
-    const stars = container.querySelectorAll('.star');
-    stars.forEach(s => {
-      const v = Number(s.dataset.value);
-      if (v <= value) s.classList.add('selected'); else s.classList.remove('selected');
-    });
-  }
-
-  // Crear controles y fijar valores iniciales basados en movie
-  buildStars('r-gore', movie.gore);
-  buildStars('r-scares', movie.scares);
-  buildStars('r-jumps', movie.jumpscares);
-  buildStars('r-susp', movie.suspense);
-
-  document.getElementById('rating-cancel').addEventListener('click', hideRatingForm);
-  document.getElementById('rating-send').addEventListener('click', async () => {
-    // leer selección de estrellas (valor 1-5) o 0 si no hay selección
-    // Método más robusto: contamos las estrellas con la clase `selected`
-    // y devolvemos el valor máximo entre ellas (debe coincidir con la selección)
-    const read = (id) => {
-      const selected = Array.from(document.querySelectorAll(`#${id} .star.selected`));
-      if (!selected.length) return 0;
-      const vals = selected.map(s => Number(s.dataset.value)).filter(v => Number.isFinite(v));
-      return vals.length ? Math.max(...vals) : 0;
-    };
-    const gore = read('r-gore');
-    const scares = read('r-scares');
-    const jumpscares = read('r-jumps');
-    const suspense = read('r-susp');
-
-    // Depuración: mostrar los valores leídos en la consola
-    console.debug('Valores de valoración seleccionados ->', { gore, scares, jumpscares, suspense });
-
-    // validación: valores entre 0 y 5
-    for (const v of [gore, scares, jumpscares, suspense]) {
-      if (!Number.isFinite(v) || v < 0 || v > 5) { alert('Valores deben ser entre 0 y 5'); return; }
-    }
-
-    // enviar al servidor el rating (usar el id de la URL para mayor fiabilidad)
-    const res = await fetch(`/api/movies/${id}/rate`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ gore, scares, jumpscares, suspense })
-    });
-    if (!res.ok) {
-      let errText = 'Error al enviar valoración';
-      try { const j = await res.json(); if (j && j.error) errText = `${res.status} - ${j.error}`; else errText = `${res.status} - ${JSON.stringify(j)}` } catch (e) { errText = `${res.status} - ${res.statusText}` }
-      alert(errText);
-      return;
-    }
-
-    // ocultar modal y recargar datos para reflejar los promedios nuevos
-    hideRatingForm();
-    load();
-  });
-}
-
-function hideRatingForm() {
-  const m = document.getElementById('rating-modal');
-  if (m) m.remove();
-}
-
-// Función que recoge los valores del formulario y envía el comentario al servidor
-async function addComment() {
-  // Obtiene y limpia el valor del campo nombre
-  const user = document.getElementById("user").value.trim();
-  // Obtiene y limpia el valor del campo texto del comentario
-  const text = document.getElementById("text").value.trim();
-  // Validación simple: ambos campos son obligatorios
-  if (!user || !text) { alert("Completa nombre y comentario"); return; }
-
-  // Enviar la petición POST al servidor para guardar el comentario (endpoint /api/movies/:id/comment)
-  const res = await fetch(`/api/movies/${id}/comment`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    // cuerpo con los campos del comentario serializado a JSON
-    body: JSON.stringify({ user, text })
-  });
-
-  // Si la respuesta no es OK, mostramos un error (intenta parsear el JSON de error si existe)
-  if (!res.ok) {
-    const err = await res.json().catch(() => null);
-    alert(err && err.error ? `Error: ${err.error}` : "Error al enviar el comentario");
-    return;
-  }
-
-  // Si todo fue bien, limpiar el formulario
-  document.getElementById("user").value = "";
-  document.getElementById("text").value = "";
-  // Recargar el detalle para mostrar el nuevo comentario (vuelve a llamar a load)
-  load();
-}
-
-// Utilidad: escapar caracteres especiales en un string para evitar inyección HTML
+/**
+ * escapeHtml
+ * Escapa texto para evitar inyección en el DOM.
+ * @param {any} s
+ * @returns {string}
+ */
 function escapeHtml(s) {
   if (!s) return '';
   return String(s)
@@ -242,26 +33,382 @@ function escapeHtml(s) {
     .replace(/'/g, '&#39;');
 }
 
-// Utilidad: formatea una fecha ISO u otro valor como fecha legible localmente
+/**
+ * formatDate
+ * Convierte una fecha ISO a una representación legible por humanos.
+ * @param {string|Date} d
+ * @returns {string}
+ */
 function formatDate(d) {
   if (!d) return '';
-  try { const dt = new Date(d); return dt.toLocaleString(); } catch (e) { return d; }
+  try { return new Date(d).toLocaleString(); } catch(e){ return d; }
 }
 
-// Calcula el "terrorímetro" de una película a partir de cuatro métricas
-// Recibe un objeto movie y devuelve un número entre 0 y 5 (puede tener un decimal)
+/**
+ * computeTerrorimeter
+ * Calcula el valor promedio (0-5) de las métricas principales de la película.
+ * @param {Object} movie
+ * @returns {number}
+ */
 function computeTerrorimeter(movie) {
-  // Obtener las 4 métricas, garantizando valores numéricos y rango 0-5
-  const g = Number.isFinite(movie.gore) ? Math.min(5, Math.max(0, movie.gore)) : 0;
-  const s = Number.isFinite(movie.scares) ? Math.min(5, Math.max(0, movie.scares)) : 0; // miedo
-  const j = Number.isFinite(movie.jumpscares) ? Math.min(5, Math.max(0, movie.jumpscares)) : 0;
-  const sp = Number.isFinite(movie.suspense) ? Math.min(5, Math.max(0, movie.suspense)) : 0;
-
-  // Promedio simple (peso igual). Se puede ajustar con ponderaciones diferentes.
-  const avg = (g + s + j + sp) / 4;
-  // Redondear a un decimal para mostrar (por ejemplo 4.2)
-  return Math.round(avg * 10) / 10;
+  const g = Number.isFinite(movie.gore)? Math.min(5,Math.max(0,movie.gore)):0;
+  const s = Number.isFinite(movie.scares)? Math.min(5,Math.max(0,movie.scares)):0;
+  const j = Number.isFinite(movie.jumpscares)? Math.min(5,Math.max(0,movie.jumpscares)):0;
+  const sp = Number.isFinite(movie.suspense)? Math.min(5,Math.max(0,movie.suspense)):0;
+  const avg = (g+s+j+sp)/4;
+  return Math.round(avg*10)/10;
 }
 
-// Llamada inicial para cargar la página cuando se carga el script
+// ------------------- COMENTARIOS -------------------
+/**
+ * addComment
+ * Envía un comentario para la película actualmente visualizada.
+ * Requiere que existan los campos #user y #text en el DOM.
+ */
+async function addComment() {
+  const user = document.getElementById("user").value.trim();
+  const text = document.getElementById("text").value.trim();
+  if(!user || !text){ alert("Completa nombre y comentario"); return; }
+
+  const res = await fetch(`/api/movies/${id}/comment`,{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({user,text})
+  });
+
+  if(!res.ok){
+    const err = await res.json().catch(()=>null);
+    alert(err && err.error ? `Error: ${err.error}` : "Error al enviar el comentario");
+    return;
+  }
+
+  document.getElementById("user").value="";
+  document.getElementById("text").value="";
+  load(); // recarga la página con el nuevo comentario
+}
+
+// ------------------- RATING -------------------
+/**
+ * showRatingForm
+ * Muestra un modal para que el usuario proteja la evaluación de la película.
+ * @param {Object} movie
+ */
+function showRatingForm(movie){
+  if(document.getElementById('rating-modal')) return;
+
+  const modal = document.createElement('div');
+  modal.id='rating-modal';
+  modal.className='rating-overlay';
+  modal.innerHTML=`
+    <div class="rating-box">
+      <h3>Valora la película</h3>
+      <p>Selecciona de 1 a 5 estrellas para cada elemento:</p>
+      <div class="rating-field"><div class="rating-label">Gore</div><div id="r-gore" class="star-rating"></div></div>
+      <div class="rating-field"><div class="rating-label">Miedo (scares)</div><div id="r-scares" class="star-rating"></div></div>
+      <div class="rating-field"><div class="rating-label">Jumpscares</div><div id="r-jumps" class="star-rating"></div></div>
+      <div class="rating-field"><div class="rating-label">Suspenso</div><div id="r-susp" class="star-rating"></div></div>
+      <div class="rating-actions">
+        <button id="rating-send">Enviar valoración</button>
+        <button id="rating-cancel">Cancelar</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+
+  function buildStars(containerId, currentValue) {
+  const cont = document.getElementById(containerId);
+  cont.innerHTML = '';
+  for (let i = 1; i <= 5; i++) {
+    const s = document.createElement('span');
+    s.className = 'star';
+    s.dataset.value = i;
+    s.tabIndex = 0;
+    s.innerText = '★';
+    
+    // colorear TODAS al abrir
+    s.classList.add('selected');
+
+    // click y teclado
+    s.addEventListener('click', () => setStars(cont, i));
+    s.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        setStars(cont, i);
+      }
+    });
+    cont.appendChild(s);
+  }
+}
+
+
+  function setStars(container,value){
+    const stars=container.querySelectorAll('.star');
+    stars.forEach(s=>{
+      const v=Number(s.dataset.value);
+      if(v<=value) s.classList.add('selected'); else s.classList.remove('selected');
+    });
+  }
+
+  buildStars('r-gore',movie.gore);
+  buildStars('r-scares',movie.scares);
+  buildStars('r-jumps',movie.jumpscares);
+  buildStars('r-susp',movie.suspense);
+
+  document.getElementById('rating-cancel').addEventListener('click',hideRatingForm);
+  document.getElementById('rating-send').addEventListener('click',async ()=>{
+    const read=(id)=>{
+      const selected=Array.from(document.querySelectorAll(`#${id} .star.selected`));
+      if(!selected.length) return 0;
+      return Math.max(...selected.map(s=>Number(s.dataset.value)));
+    };
+    const gore=read('r-gore');
+    const scares=read('r-scares');
+    const jumpscares=read('r-jumps');
+    const suspense=read('r-susp');
+
+    for(const v of [gore,scares,jumpscares,suspense]){
+      if(!Number.isFinite(v) || v<0 || v>5){ alert('Valores deben ser entre 0 y 5'); return; }
+    }
+
+    const res=await fetch(`/api/movies/${id}/rate`,{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({gore,scares,jumpscares,suspense})
+    });
+
+    if(!res.ok){
+      let errText='Error al enviar valoración';
+      try{const j=await res.json(); if(j && j.error) errText=`${res.status} - ${j.error}`;}catch(e){ errText=`${res.status} - ${res.statusText}`;}
+      alert(errText); return;
+    }
+
+    hideRatingForm();
+    load();
+  });
+}
+
+/**
+ * hideRatingForm
+ * Cierra el modal de valoración si existe.
+ */
+function hideRatingForm(){ const m=document.getElementById('rating-modal'); if(m) m.remove(); }
+
+// ------------------- LOAD -------------------
+const params=new URLSearchParams(location.search);
+const id=params.get("id");
+
+/**
+ * load
+ * Carga los datos de la película, renderiza la vista y enlaza eventos.
+ */
+async function load(){
+  const movie=await fetchJSON(`/api/movies/${id}`);
+  if(!movie){ document.getElementById("movie-container").innerHTML="<p>Película no encontrada</p>"; return; }
+
+  const terrorValue=computeTerrorimeter(movie);
+  const terrorPercent=Math.round((terrorValue/5)*100);
+  document.getElementById("movie-container").innerHTML=`
+  <style>
+    #movie-video:hover {
+      box-shadow: 0 0 25px rgba(128,0,128,0.7), 0 0 50px rgba(138,43,226,0.5);
+      transform: scale(1.02);
+      transition: all 0.3s ease;
+    }
+    #simulate-end:hover, #show-trailer:hover {
+      box-shadow: 0 0 15px #8a2be2, 0 0 25px #4b0082 inset;
+      transform: scale(1.05);
+      transition: all 0.3s ease;
+    }
+    .star.selected {
+      color: #ba55d3;
+      text-shadow: 0 0 6px #8a2be2;
+    }
+    .trailer-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.85);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 9999;
+    }
+    .trailer-box {
+      position: relative;
+      background: #111;
+      padding: 20px;
+      border-radius: 8px;
+    }
+    .trailer-close {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      background: #4b0082;
+      color: #fff;
+      border: none;
+      font-size: 20px;
+      border-radius: 50%;
+      cursor: pointer;
+      width: 32px;
+      height: 32px;
+    }
+  </style>
+
+  <div class="movie-detail" style="background:#111;color:#f5f5f5;font-family:'Creepster','Arial',sans-serif;padding:20px;border-radius:12px;max-width:960px;margin:30px auto;box-shadow:0 0 20px rgba(138,43,226,0.5);">
+    <div class="meta" style="display:flex;gap:20px;align-items:flex-start;">
+      <img class="poster" src="${movie.poster}" alt="${movie.title}" style="width:250px;border-radius:8px;box-shadow:0 0 15px rgba(138,43,226,0.6);"/>
+      <div class="info" style="flex:1;">
+        <h1 style="font-size:2em;color:#ba55d3;margin-bottom:10px;">${movie.title} <small style="font-size:0.6em;color:#ccc">(${movie.year})</small></h1>
+        <div class="terrorimeter" style="margin:12px 0;">
+          <div class="terror-bar" style="background:#333;border:2px solid #4b0082;border-radius:6px;height:20px;width:100%;overflow:hidden;">
+            <div class="terror-fill" style="width:${terrorPercent}%;background:linear-gradient(90deg,#4b0082 0%,#ba55d3 100%);height:100%;"></div>
+          </div>
+          <div class="terror-score" style="margin-top:4px;color:#ba55d3;font-weight:bold;">Terrorímetro: ${terrorValue}/5</div>
+        </div>
+        <p class="synopsis" style="margin:10px 0;line-height:1.5;color:#eee;">${movie.synopsis}</p>
+        <p class="tags" style="margin:6px 0;"><strong>Tags:</strong> ${((movie.tags||[]).map(t=>`<span class="tag" style="background:#4b0082;padding:2px 6px;border-radius:4px;margin-right:4px;color:#fff;">${t}</span>`).join(" "))}</p>
+        <p class="levels" style="margin:4px 0;"><strong>Gore:</strong> ${movie.gore??'N/A'} / 5 &nbsp; <strong>Miedo:</strong> ${movie.scares??'N/A'} / 5</p>
+        <p class="levels" style="margin:4px 0;"> <strong>Jumpscares:</strong> ${movie.jumpscares??'N/A'} / 5 &nbsp; <strong>Suspenso:</strong> ${movie.suspense??'N/A'} / 5</p>
+        <!-- Botones alineados -->
+        <div style="margin-top:12px; display:flex; gap:12px;">
+          <button id="show-trailer" style="background:#4b0082;color:#fff;padding:10px 16px;border:none;border-radius:6px;cursor:pointer;font-weight:bold;box-shadow:0 0 10px #8a2be2;">
+            Ver trailer
+          </button>
+          <button id="simulate-end" style="background:#4b0082;color:#fff;padding:10px 16px;border:none;border-radius:6px;cursor:pointer;font-weight:bold;box-shadow:0 0 10px #8a2be2;">
+            Calificar película
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="player" style="margin-top:30px;text-align:center;">
+      <video id="movie-video" controls style="width:100%;max-width:720px;height:auto;border-radius:8px;box-shadow:0 0 15px rgba(138,43,226,0.4);">
+        <source src="/videos/trailers/codeflix.mp4" type="video/mp4">
+        Tu navegador no soporta el elemento video.
+      </video>
+    </div>
+
+    <section class="comments-section" style="margin-top:40px;">
+      <h3 style="color:#ba55d3;border-bottom:1px solid #4b0082;padding-bottom:6px;">Comentarios</h3>
+      <div id="comments" style="margin-top:12px;">
+        ${((movie.comments||[]).map(c=>`<div class="comment" style="background:#222;border:1px solid #4b0082;padding:8px 12px;border-radius:6px;margin-bottom:8px;"><b style="color:#ba55d3;">${escapeHtml(c.user)}</b> <small style="color:#aaa;">${formatDate(c.date)}</small><p style="margin-top:4px;color:#eee;">${escapeHtml(c.text)}</p></div>`).join(""))}
+      </div>
+      <h4 style="margin-top:20px;color:#ba55d3;">Añadir comentario</h4>
+      <div class="comment-form" style="display:flex;flex-direction:column;gap:8px;">
+        <input id="user" placeholder="Tu nombre" style="padding:8px;border-radius:6px;border:1px solid #4b0082;background:#111;color:#fff;"/>
+        <textarea id="text" placeholder="Tu comentario" style="padding:8px;border-radius:6px;border:1px solid #4b0082;background:#111;color:#fff;"></textarea>
+        <button id="send" style="background:#4b0082;color:#fff;padding:10px 16px;border:none;border-radius:6px;cursor:pointer;font-weight:bold;box-shadow:0 0 10px #8a2be2;">Enviar</button>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <p>&copy; 2025 CodeFlix. Todos los derechos reservados.</p>
+    </footer>
+  </div>
+  `;
+
+
+  document.getElementById("send").addEventListener("click",addComment);
+
+  // ---------------- TRAILER ----------------
+  const showTrailerBtn=document.getElementById('show-trailer');
+  if(showTrailerBtn){
+    showTrailerBtn.addEventListener('click',()=>{
+      if(showTrailerBtn.dataset.clicked) return;
+      showTrailerBtn.dataset.clicked='1';
+
+      const overlay=document.createElement('div');
+      overlay.id='trailer-modal';
+      overlay.className='trailer-overlay';
+      overlay.innerHTML=`
+        <div class="trailer-box">
+          <button id="trailer-close" class="trailer-close">✕</button>
+          <div id="trailer-content" class="trailer-content">Cargando trailer…</div>
+        </div>
+      `;
+      document.body.appendChild(overlay);
+
+      const content=document.getElementById('trailer-content');
+
+      const keyHandler = (e) => {
+        if (e.key === 'Escape') closeModal();
+      };
+
+      function closeModal() {
+        const m = document.getElementById('trailer-modal');
+        if (m) {
+          const v = m.querySelector('video');
+          if (v && !v.paused) {
+            try {
+              v.pause();
+              v.currentTime = 0;
+            } catch (e) {}
+          }
+          m.remove();
+        }
+        delete showTrailerBtn.dataset.clicked;
+        document.removeEventListener('keydown', keyHandler);
+      }
+
+      document
+        .getElementById('trailer-close')
+        .addEventListener('click', () => closeModal());
+      document.addEventListener('keydown', keyHandler);
+
+      if(movie.trailer){
+        if(movie.trailer.type==='local'){
+        // Trailers locales (MP4)
+          const v=document.createElement('video'); v.controls=true; v.width=920;
+          const s=document.createElement('source'); s.src=movie.trailer.url; s.type='video/mp4'; v.appendChild(s);
+          content.innerHTML=''; content.appendChild(v);
+          v.addEventListener('ended',()=>{ closeModal(); });
+        }
+        else if(movie.trailer.type==='youtube'){
+        //Trailers de YouTube
+        // Añadimos autoplay para permitir reproducción automática
+        const autoplayUrl = movie.trailer.url.includes("?")
+          ? movie.trailer.url + "&autoplay=1" //Ponerlo asi: "&autoplay=1&mute=1" en caso de que el navegaro bloquee el video
+          : movie.trailer.url + "?autoplay=1"; //Ponerlo asi: "&autoplay=1&mute=1" en caso de que el navegaro bloquee el video
+          content.innerHTML=`
+          <iframe
+            width="920"
+            height="518"
+            src="${autoplayUrl}"
+            title="Trailer de ${movie.title}"
+            frameborder="0"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowfullscreen>
+          </iframe>
+        `;
+      }
+      else {
+        content.innerHTML='<p>Tipo de trailer no soportado</p>';
+      }
+} else if(movie.video){
+  const v=document.createElement('video'); v.controls=true; v.width=920; v.src=movie.video;
+  content.innerHTML=''; content.appendChild(v);
+  v.addEventListener('ended',()=>{ closeModal(); });
+} else { 
+  content.innerHTML='<p>Trailer no disponible</p>'; 
+}
+    });
+  }
+
+  // Video principal
+const vid = document.getElementById('movie-video');
+if (vid) {
+  vid.addEventListener('ended', () => {
+    showRatingForm(movie);
+  });
+}
+
+
+  // Botón simular fin
+  const sim=document.getElementById('simulate-end');
+  if(sim) sim.addEventListener('click',()=>showRatingForm(movie));
+}
+
+// ---------------- INICIO ----------------
 load();
+
