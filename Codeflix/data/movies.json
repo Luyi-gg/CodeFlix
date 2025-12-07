@@ -418,10 +418,22 @@
       "fantasmas",
       "secuela"
     ],
-    "gore": 3,
-    "scares": 5,
+    "gore": 2,
+    "scares": 3,
     "subgenre": "Sobrenatural",
-    "comments": []
+    "comments": [
+      {
+        "user": "pedrito sola",
+        "text": "muy buena peli c:",
+        "date": "2025-12-06T01:10:12.184Z"
+      }
+    ],
+    "gore_count": 2,
+    "scares_count": 2,
+    "jumpscares": 1,
+    "jumps_count": 1,
+    "suspense": 1,
+    "suspense_count": 1
   },
   {
     "id": 19,
